@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ปฏิทินวันว่าง</title>
     
-        <!-- โหลด Firebase SDK -->
+        <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
-    <!-- โหลดไลบรารี XLSX สำหรับ Export Excel -->
+    <!-- โหลดไลบรารี XLSX  Export Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-    <!-- ใส่ CSS หรือ Tailwind CSS ที่คุณใช้ที่นี่ -->
+    <!-- ใส่ CSS หรือ Tailwind CSS  -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -76,12 +76,12 @@
         <div class="p-6 bg-gray-50 border-b">
             <div class="flex flex-col md:flex-row gap-4 items-start md:items-center">
                 <div class="w-full md:w-1/2">
-                    <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่นของคุณ</label>
+                    <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
                     <div class="flex">
-                        <input type="text" id="nickname" placeholder="ใส่ชื่อเล่นของคุณ" 
+                        <input type="text" id="nickname" placeholder="ใส่ชื่อเล่น" 
                             class="flex-1 rounded-l-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 px-4 py-2 border">
                         <button id="registerBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-r-lg">
-                            บันทึก
+                            ตกลง
                         </button>
                     </div>
                     <p id="userInfo" class="mt-2 text-sm text-gray-600 hidden">
@@ -133,10 +133,10 @@
         </div>
         
         <!-- ส่วนแสดงคนที่ว่างในวันที่เลือก -->
-        <div id="availabilityDetails" class="p-6 bg-gray-50 border-t hidden">
-            <h3 class="text-lg font-medium text-gray-800 mb-3">รายชื่อคนว่างในวันที่ <span id="selectedDate" class="font-semibold text-indigo-600"></span></h3>
-            <div id="availablePeople" class="space-y-2"></div>
-        </div>
+        <div id="availabilityDetails" class="hidden p-4 border rounded mt-4 max-w-md mx-auto bg-white shadow">
+        <h3 class="text-lg font-semibold mb-2">คนที่ว่างในวันที่ <span id="selectedDate"></span></h3>
+        <ul id="available-users" class="list-disc list-inside space-y-1 text-gray-700"></ul>
+        </div>  
         
         <!-- ส่วนแสดงการแจ้งเตือน -->
         <div id="notification" class="fixed bottom-4 right-4 max-w-xs bg-white rounded-lg shadow-lg border-l-4 border-green-500 p-4 hidden notification">
@@ -230,7 +230,7 @@
       dayHeader.className = 'flex justify-between items-center mb-1';
 
       const dayNumber = document.createElement('span');
-      dayNumber.className = 'font-medium';
+      dayNumber.className = 'font-medium text-sm md:text-base';
       dayNumber.textContent = day;
 
       // ไฮไลต์วันปัจจุบัน
@@ -395,7 +395,7 @@
 
         showNotification(`สวัสดี ${nickname}! คุณสามารถเลือกวันที่คุณว่างได้แล้ว`);
       } else {
-        showNotification('กรุณาใส่ชื่อเล่นของคุณ', 'warning');
+        showNotification('กรุณาใส่ชื่อเล่น', 'warning');
       }
     });
 
@@ -411,6 +411,50 @@
 
     document.getElementById('exportBtn').addEventListener('click', exportToExcel);
   });
+
+  function showAvailabilityDetails(dateKey) {
+  const availabilityDetails = document.getElementById('availabilityDetails');
+  const selectedDate = document.getElementById('selectedDate');
+  const availableUsersList = document.getElementById('available-users');
+
+  // แปลงวันที่ให้อยู่ในรูปแบบ วัน เดือน ปี (พ.ศ.)
+  const [year, month, day] = dateKey.split('-');
+  const thaiMonths = [
+    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+  ];
+  selectedDate.textContent = `${parseInt(day)} ${thaiMonths[parseInt(month) - 1]} ${parseInt(year) + 543}`;
+
+  // ล้างรายการก่อนหน้า
+  availableUsersList.innerHTML = '';
+
+  if (availabilityData[dateKey] && availabilityData[dateKey].length > 0) {
+    availabilityData[dateKey].forEach(person => {
+      const li = document.createElement('li');
+      li.textContent = person;
+
+      // กำหนดสีพื้นหลังและสีข้อความของแท็กชื่อ (ถ้ามี)
+      if(userColors[person]) {
+        li.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue(`--${userColors[person]}-bg`) || '';
+        li.style.color = getComputedStyle(document.documentElement).getPropertyValue(`--${userColors[person]}-text`) || '';
+        li.className = userColors[person];
+        li.style.padding = '4px 8px';
+        li.style.borderRadius = '8px';
+        li.style.marginBottom = '4px';
+        li.style.display = 'inline-block';
+      }
+
+      availableUsersList.appendChild(li);
+    });
+  } else {
+    const li = document.createElement('li');
+    li.textContent = 'ยังไม่มีใครว่างในวันนี้';
+    li.style.color = '#666';
+    availableUsersList.appendChild(li);
+  }
+
+  availabilityDetails.style.display = 'block';
+}
 </script>
 
 
