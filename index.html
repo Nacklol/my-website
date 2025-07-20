@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ปฏิทินวันว่าง</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap');
+        
+        body {
+            font-family: 'Prompt', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .calendar-day {
+            transition: all 0.2s ease;
+        }
+        
+        .calendar-day:hover:not(.inactive) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .person-tag {
+            display: inline-block;
+            margin: 2px;
+            padding: 2px 6px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        
+        /* ทำให้ปุ่มมีเอฟเฟกต์เมื่อกด */
+        button {
+            transition: transform 0.1s ease;
+        }
+        
+        button:active {
+            transform: scale(0.97);
+        }
+        
+        /* Animation for notifications */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .notification {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="max-w-5xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <!-- ส่วนหัว -->
+        <div class="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-white">
+            <h1 class="text-2xl md:text-3xl font-semibold">ปฏิทินวันว่าง</h1>
+            <p class="opacity-80">เลือกวันที่คุณว่าง และดูวันว่างของเพื่อน</p>
+        </div>
+        
+        <!-- ส่วนลงทะเบียนชื่อ -->
+        <div class="p-6 bg-gray-50 border-b">
+            <div class="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <div class="w-full md:w-1/2">
+                    <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">ชื่อเล่นของคุณ</label>
+                    <div class="flex">
+                        <input type="text" id="nickname" placeholder="ใส่ชื่อเล่นของคุณ" 
+                            class="flex-1 rounded-l-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 px-4 py-2 border">
+                        <button id="registerBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-r-lg">
+                            บันทึก
+                        </button>
+                    </div>
+                    <p id="userInfo" class="mt-2 text-sm text-gray-600 hidden">
+                        คุณกำลังเลือกในชื่อ: <span id="currentUser" class="font-medium text-indigo-600"></span>
+                        <button id="changeUser" class="text-xs text-blue-500 underline ml-2">เปลี่ยน</button>
+                    </p>
+                </div>
+                
+                <div class="w-full md:w-1/2 flex justify-start md:justify-end mt-4 md:mt-0">
+                    <button id="exportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export เป็น Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ส่วนแสดงปฏิทิน -->
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-6">
+                <button id="prevMonth" class="p-2 rounded-full hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h2 id="currentMonth" class="text-xl font-semibold text-gray-800"></h2>
+                <button id="nextMonth" class="p-2 rounded-full hover:bg-gray-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+            </div>
+            
+            <!-- วันในสัปดาห์ -->
+            <div class="grid grid-cols-7 gap-2 mb-2 text-center">
+                <div class="text-sm font-medium text-gray-500">อา</div>
+                <div class="text-sm font-medium text-gray-500">จ</div>
+                <div class="text-sm font-medium text-gray-500">อ</div>
+                <div class="text-sm font-medium text-gray-500">พ</div>
+                <div class="text-sm font-medium text-gray-500">พฤ</div>
+                <div class="text-sm font-medium text-gray-500">ศ</div>
+                <div class="text-sm font-medium text-gray-500">ส</div>
+            </div>
+            
+            <!-- ตารางวันที่ -->
+            <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
+        </div>
+        
+        <!-- ส่วนแสดงคนที่ว่างในวันที่เลือก -->
+        <div id="availabilityDetails" class="p-6 bg-gray-50 border-t hidden">
+            <h3 class="text-lg font-medium text-gray-800 mb-3">รายชื่อคนว่างในวันที่ <span id="selectedDate" class="font-semibold text-indigo-600"></span></h3>
+            <div id="availablePeople" class="space-y-2"></div>
+        </div>
+        
+        <!-- ส่วนแสดงการแจ้งเตือน -->
+        <div id="notification" class="fixed bottom-4 right-4 max-w-xs bg-white rounded-lg shadow-lg border-l-4 border-green-500 p-4 hidden notification">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p id="notificationText" class="text-sm text-gray-700"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ตัวแปรสำหรับเก็บข้อมูล
+        const availabilityData = {}; // เก็บข้อมูลวันว่างของแต่ละคน
+        let currentUser = null; // ผู้ใช้ปัจจุบัน
+        let currentDate = new Date(); // วันที่ปัจจุบัน
+        
+        // สีสำหรับแท็กชื่อคน (จะวนไปเรื่อยๆ)
+        const tagColors = [
+            'bg-blue-100 text-blue-800',
+            'bg-green-100 text-green-800',
+            'bg-yellow-100 text-yellow-800',
+            'bg-red-100 text-red-800',
+            'bg-purple-100 text-purple-800',
+            'bg-pink-100 text-pink-800',
+            'bg-indigo-100 text-indigo-800',
+            'bg-teal-100 text-teal-800'
+        ];
+        
+        // เก็บสีที่ใช้สำหรับแต่ละคน
+        const userColors = {};
+        let colorIndex = 0;
+        
+        // ฟังก์ชันสำหรับแสดงปฏิทิน
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            // ตั้งค่าชื่อเดือนภาษาไทย
+            const thaiMonths = [
+                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+            ];
+            
+            // แสดงเดือนและปี (ปี พ.ศ.)
+            document.getElementById('currentMonth').textContent = `${thaiMonths[month]} ${year + 543}`;
+            
+            const calendarGrid = document.getElementById('calendarGrid');
+            calendarGrid.innerHTML = '';
+            
+            // หาวันแรกของเดือน
+            const firstDay = new Date(year, month, 1);
+            const startingDay = firstDay.getDay(); // 0 = วันอาทิตย์, 1 = วันจันทร์, ...
+            
+            // หาจำนวนวันในเดือน
+            const lastDay = new Date(year, month + 1, 0);
+            const totalDays = lastDay.getDate();
+            
+            // สร้างวันที่ว่างสำหรับวันก่อนหน้าเดือนปัจจุบัน
+            for (let i = 0; i < startingDay; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day p-2 rounded-lg bg-gray-50 text-gray-300 h-24 inactive';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            // สร้างวันที่ในเดือนปัจจุบัน
+            for (let day = 1; day <= totalDays; day++) {
+                const dateKey = `${year}-${month + 1}-${day}`;
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day p-2 rounded-lg border border-gray-200 bg-white h-24 flex flex-col';
+                dayElement.dataset.date = dateKey;
+                
+                // ส่วนหัวของวันที่
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'flex justify-between items-center mb-1';
+                
+                const dayNumber = document.createElement('span');
+                dayNumber.className = 'font-medium';
+                dayNumber.textContent = day;
+                
+                // ตรวจสอบว่าเป็นวันนี้หรือไม่
+                const today = new Date();
+                if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                    dayNumber.className += ' bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center';
+                }
+                
+                dayHeader.appendChild(dayNumber);
+                dayElement.appendChild(dayHeader);
+                
+                // ส่วนแสดงรายชื่อคนที่ว่าง
+                const peopleContainer = document.createElement('div');
+                peopleContainer.className = 'flex flex-wrap overflow-y-auto flex-1';
+                
+                // ตรวจสอบว่ามีใครว่างในวันนี้บ้าง
+                if (availabilityData[dateKey]) {
+                    const availablePeople = availabilityData[dateKey];
+                    availablePeople.forEach(person => {
+                        const personTag = document.createElement('span');
+                        
+                        // ใช้สีที่กำหนดไว้สำหรับคนนี้ หรือกำหนดสีใหม่ถ้ายังไม่มี
+                        if (!userColors[person]) {
+                            userColors[person] = tagColors[colorIndex % tagColors.length];
+                            colorIndex++;
+                        }
+                        
+                        personTag.className = `person-tag ${userColors[person]}`;
+                        personTag.textContent = person;
+                        peopleContainer.appendChild(personTag);
+                    });
+                }
+                
+                dayElement.appendChild(peopleContainer);
+                
+                // เพิ่ม event listener สำหรับการคลิกที่วัน
+                dayElement.addEventListener('click', () => handleDayClick(dateKey, day));
+                
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+        
+        // ฟังก์ชันจัดการเมื่อคลิกที่วัน
+        function handleDayClick(dateKey, day) {
+            if (!currentUser) {
+                showNotification('กรุณาใส่ชื่อเล่นก่อนเลือกวันที่คุณว่าง', 'warning');
+                return;
+            }
+            
+            // ตรวจสอบว่าผู้ใช้เคยเลือกวันนี้ไว้แล้วหรือไม่
+            if (!availabilityData[dateKey]) {
+                availabilityData[dateKey] = [];
+            }
+            
+            const index = availabilityData[dateKey].indexOf(currentUser);
+            
+            if (index === -1) {
+                // ถ้ายังไม่เคยเลือก ให้เพิ่มชื่อเข้าไป
+                availabilityData[dateKey].push(currentUser);
+                showNotification(`คุณได้เลือกวันที่ ${day} ว่าคุณว่าง`, 'success');
+            } else {
+                // ถ้าเคยเลือกแล้ว ให้ลบออก
+                availabilityData[dateKey].splice(index, 1);
+                showNotification(`คุณได้ยกเลิกวันที่ ${day}`, 'info');
+            }
+            
+            // อัพเดทปฏิทิน
+            renderCalendar();
+            
+            // แสดงรายละเอียดคนที่ว่างในวันที่เลือก
+            showAvailabilityDetails(dateKey, day);
+        }
+        
+        // ฟังก์ชันแสดงรายละเอียดคนที่ว่างในวันที่เลือก
+        function showAvailabilityDetails(dateKey, day) {
+            const availabilityDetails = document.getElementById('availabilityDetails');
+            const selectedDate = document.getElementById('selectedDate');
+            const availablePeople = document.getElementById('availablePeople');
+            
+            // ตั้งค่าวันที่เลือก
+            const [year, month, dayNum] = dateKey.split('-');
+            const thaiMonths = [
+                'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+                'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+            ];
+            selectedDate.textContent = `${day} ${thaiMonths[parseInt(month) - 1]} ${parseInt(year) + 543}`;
+            
+            // แสดงรายชื่อคนที่ว่าง
+            availablePeople.innerHTML = '';
+            
+            if (availabilityData[dateKey] && availabilityData[dateKey].length > 0) {
+                availabilityData[dateKey].forEach(person => {
+                    const personElement = document.createElement('div');
+                    personElement.className = 'flex items-center';
+                    
+                    const personIcon = document.createElement('span');
+                    personIcon.className = `inline-block w-2 h-2 rounded-full mr-2 ${userColors[person].replace('bg-', 'bg-').replace('text-', '')}`;
+                    
+                    const personName = document.createElement('span');
+                    personName.textContent = person;
+                    
+                    personElement.appendChild(personIcon);
+                    personElement.appendChild(personName);
+                    availablePeople.appendChild(personElement);
+                });
+                
+                availabilityDetails.classList.remove('hidden');
+            } else {
+                const noOneAvailable = document.createElement('p');
+                noOneAvailable.className = 'text-gray-500';
+                noOneAvailable.textContent = 'ยังไม่มีใครว่างในวันนี้';
+                availablePeople.appendChild(noOneAvailable);
+                
+                availabilityDetails.classList.remove('hidden');
+            }
+        }
+        
+        // ฟังก์ชันแสดงการแจ้งเตือน
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            
+            // กำหนดสีตามประเภทการแจ้งเตือน
+            if (type === 'success') {
+                notification.className = notification.className.replace(/border-\w+-500/g, 'border-green-500');
+            } else if (type === 'warning') {
+                notification.className = notification.className.replace(/border-\w+-500/g, 'border-yellow-500');
+            } else if (type === 'info') {
+                notification.className = notification.className.replace(/border-\w+-500/g, 'border-blue-500');
+            }
+            
+            notificationText.textContent = message;
+            notification.classList.remove('hidden');
+            
+            // ซ่อนการแจ้งเตือนหลังจาก 3 วินาที
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // ฟังก์ชันสำหรับ Export ข้อมูลเป็น Excel
+        function exportToExcel() {
+            // สร้างข้อมูลสำหรับ Excel
+            const data = [];
+            
+            // สร้างรายการวันที่ที่มีคนว่าง
+            const dates = Object.keys(availabilityData).filter(date => availabilityData[date].length > 0);
+            dates.sort(); // เรียงตามวันที่
+            
+            // สร้างรายการชื่อคนทั้งหมด
+            const allPeople = new Set();
+            dates.forEach(date => {
+                availabilityData[date].forEach(person => {
+                    allPeople.add(person);
+                });
+            });
+            
+            const people = Array.from(allPeople).sort();
+            
+            // สร้างหัวตาราง
+            const headers = ['ชื่อ'];
+            dates.forEach(date => {
+                const [year, month, day] = date.split('-');
+                headers.push(`${day}/${month}/${parseInt(year) + 543}`);
+            });
+            data.push(headers);
+            
+            // สร้างข้อมูลแต่ละแถว
+            people.forEach(person => {
+                const row = [person];
+                dates.forEach(date => {
+                    if (availabilityData[date].includes(person)) {
+                        row.push('✓');
+                    } else {
+                        row.push('');
+                    }
+                });
+                data.push(row);
+            });
+            
+            // สร้าง workbook
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'วันว่าง');
+            
+            // ดาวน์โหลดไฟล์
+            XLSX.writeFile(wb, 'ตารางวันว่าง.xlsx');
+            
+            showNotification('ดาวน์โหลดไฟล์ Excel สำเร็จ');
+        }
+        
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // แสดงปฏิทินเมื่อโหลดหน้า
+            renderCalendar();
+            
+            // ปุ่มเดือนก่อนหน้า
+            document.getElementById('prevMonth').addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() - 1);
+                renderCalendar();
+                document.getElementById('availabilityDetails').classList.add('hidden');
+            });
+            
+            // ปุ่มเดือนถัดไป
+            document.getElementById('nextMonth').addEventListener('click', () => {
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                renderCalendar();
+                document.getElementById('availabilityDetails').classList.add('hidden');
+            });
+            
+            // ปุ่มลงทะเบียนชื่อ
+            document.getElementById('registerBtn').addEventListener('click', () => {
+                const nicknameInput = document.getElementById('nickname');
+                const nickname = nicknameInput.value.trim();
+                
+                if (nickname) {
+                    currentUser = nickname;
+                    document.getElementById('currentUser').textContent = nickname;
+                    document.getElementById('userInfo').classList.remove('hidden');
+                    nicknameInput.disabled = true;
+                    document.getElementById('registerBtn').disabled = true;
+                    document.getElementById('exportBtn').disabled = false;
+                    
+                    showNotification(`สวัสดี ${nickname}! คุณสามารถเลือกวันที่คุณว่างได้แล้ว`);
+                } else {
+                    showNotification('กรุณาใส่ชื่อเล่นของคุณ', 'warning');
+                }
+            });
+            
+            // ปุ่มเปลี่ยนชื่อ
+            document.getElementById('changeUser').addEventListener('click', () => {
+                const nicknameInput = document.getElementById('nickname');
+                nicknameInput.disabled = false;
+                nicknameInput.value = '';
+                nicknameInput.focus();
+                document.getElementById('registerBtn').disabled = false;
+                document.getElementById('userInfo').classList.add('hidden');
+                currentUser = null;
+            });
+            
+            // ปุ่ม Export Excel
+            document.getElementById('exportBtn').addEventListener('click', exportToExcel);
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9621ecc1f292cdf1',t:'MTc1MzAwODkxMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
