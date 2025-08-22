@@ -274,24 +274,20 @@
       return;
     }
 
-    const ref = db.ref("availability/" + dateKey);
-
-    ref.once("value").then(snapshot => {
-      let users = snapshot.val() || [];
-
-      if (users.includes(currentUser)) {
-        // ถ้าคลิกซ้ำคือยกเลิกการเลือก
-        users = users.filter(u => u !== currentUser);
-        showNotification(`คุณได้ยกเลิกวันที่ ${day}`, 'info');
-      } else {
-        // เพิ่มชื่อผู้ใช้ในวันนั้น
-        users.push(currentUser);
-        showNotification(`คุณได้เลือกวันที่ ${day} ว่าคุณว่าง`, 'success');
-      }
-
-      ref.set(users);
+   const ref = db.ref("availability/" + dateKey);
+    ref.transaction(currentUsers => {
+        if (!currentUsers) currentUsers = [];
+        if (currentUsers.includes(currentUser)) {
+            showNotification(`คุณได้ยกเลิกวันที่ ${day}`, 'info');
+            return currentUsers.filter(u => u !== currentUser);
+        } else {
+            showNotification(`คุณได้เลือกวันที่ ${day} ว่าคุณว่าง`, 'success');
+            currentUsers.push(currentUser);
+            return currentUsers;
+        }
     });
-  }
+    showAvailabilityDetails(dateKey);
+}
 
   // โหลดข้อมูลจาก Firebase แล้วแสดงปฏิทิน
   function loadAvailabilityData() {
